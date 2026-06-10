@@ -5,11 +5,8 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
     const [voiceFile, setVoiceFile] = useState(null);
     const [recording, setRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState(null);
-    const [audioChunks, setAudioChunks] = useState([]);
     const [uploading, setUploading] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [audioUrl, setAudioUrl] = useState(null);
-    
+
     const audioRef = useRef(null);
 
     const startRecording = async () => {
@@ -17,25 +14,27 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
             const chunks = [];
-            
+
             recorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
                     chunks.push(event.data);
                 }
             };
-            
+
             recorder.onstop = () => {
                 const audioBlob = new Blob(chunks, { type: 'audio/wav' });
                 const file = new File([audioBlob], `voice_${screenshotId}_${Date.now()}.wav`, { type: 'audio/wav' });
                 setVoiceFile(file);
-                
+
                 // Create audio URL for preview
                 const url = URL.createObjectURL(audioBlob);
-                setAudioUrl(url);
-                
+                if (audioRef.current) {
+                    audioRef.current.src = url;
+                }
+
                 stream.getTracks().forEach(track => track.stop());
             };
-            
+
             recorder.start(1000);
             setMediaRecorder(recorder);
             setRecording(true);
@@ -53,41 +52,32 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
     };
 
     const handlePlay = () => {
-        if (audioRef.current && audioUrl) {
+        if (audioRef.current && audioRef.current.src) {
             audioRef.current.play();
-            setIsPlaying(true);
         }
     };
 
     const handlePause = () => {
         if (audioRef.current) {
             audioRef.current.pause();
-            setIsPlaying(false);
         }
-    };
-
-    const handleAudioEnded = () => {
-        setIsPlaying(false);
     };
 
     const handleUpload = async () => {
         if (!voiceFile) return;
-        
+
         setUploading(true);
         const formData = new FormData();
         formData.append('voice', voiceFile);
         formData.append('isUserVoice', 'true');
-        
+
         try {
             await addVoiceToScreenshot(userId, screenshotId, formData);
             alert('Voice note added successfully!');
-            // Clean up
-            if (audioUrl) {
-                URL.revokeObjectURL(audioUrl);
-            }
             setVoiceFile(null);
-            setAudioUrl(null);
-            setIsPlaying(false);
+            if (audioRef.current) {
+                audioRef.current.src = '';
+            }
             onUpload();
         } catch (error) {
             console.error('Upload error:', error);
@@ -98,12 +88,10 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
     };
 
     const cancelRecording = () => {
-        if (audioUrl) {
-            URL.revokeObjectURL(audioUrl);
-        }
         setVoiceFile(null);
-        setAudioUrl(null);
-        setIsPlaying(false);
+        if (audioRef.current) {
+            audioRef.current.src = '';
+        }
     };
 
     return (
@@ -125,14 +113,10 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
                 </div>
             ) : (
                 <div>
-                    {/* Preview Section - Listen before upload */}
                     <div style={styles.previewContainer}>
-                        <audio 
-                            ref={audioRef} 
-                            src={audioUrl}
-                            onEnded={handleAudioEnded}
-                            onPause={() => setIsPlaying(false)}
-                            onPlay={() => setIsPlaying(true)}
+                        <audio
+                            ref={audioRef}
+                            controls
                             style={styles.audioPlayer}
                         />
                         <div style={styles.previewButtons}>
@@ -144,7 +128,7 @@ function VoiceRecorder({ userId, screenshotId, onUpload }) {
                             </button>
                         </div>
                     </div>
-                    
+
                     <div style={styles.actionButtons}>
                         <button onClick={handleUpload} style={styles.uploadButton} disabled={uploading}>
                             {uploading ? 'Uploading...' : '📤 Upload Voice Note'}
@@ -165,7 +149,7 @@ const styles = {
     stopButton: { backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', margin: '5px', borderRadius: '5px', cursor: 'pointer' },
     recordingText: { color: 'red', fontSize: '12px', marginLeft: '10px' },
     previewContainer: { margin: '10px 0', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '5px' },
-    audioPlayer: { width: '100%', marginBottom: '10px', display: 'none' }, // Hide default controls
+    audioPlayer: { width: '100%', marginBottom: '10px' },
     previewButtons: { display: 'flex', gap: '10px', justifyContent: 'center' },
     playButton: { backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '5px', cursor: 'pointer', fontSize: '14px' },
     pauseButton: { backgroundColor: '#ffc107', color: 'black', border: 'none', padding: '8px 20px', borderRadius: '5px', cursor: 'pointer', fontSize: '14px' },
