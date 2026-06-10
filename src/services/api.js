@@ -4,7 +4,7 @@ import axios from 'axios';
 const getBaseUrl = () => {
     // Production (when deployed to Vercel)
     if (process.env.NODE_ENV === 'production') {
-        return 'https://your-backend-url.onrender.com/api';  // Update after deployment
+        return 'https://screenshot-voice-backend.onrender.com/api';  // Your actual Render URL
     }
     // Local development
     return 'http://localhost:8080/api';
@@ -44,11 +44,10 @@ export const addVoiceToScreenshot = (userId, screenshotId, formData) =>
         headers: { 'Content-Type': 'multipart/form-data' },
     });
 
-// In src/services/api.js, update getVoiceUrl function:
-
+// Fixed: Use the same base URL logic for voice playback
 export const getVoiceUrl = (userId, screenshotId) => {
-    // For local development
-    return `http://localhost:8080/api/voice/${screenshotId}/play/user/${userId}`;
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/voice/${screenshotId}/play/user/${userId}`;
 };
 
 export const deleteVoice = (userId, screenshotId) =>
